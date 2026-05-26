@@ -1,0 +1,82 @@
+BUILD_DIR := build
+KERNEL_DIR := kernel
+USER_DIR := user
+TOOLS_DIR := tools
+
+CC := riscv64-unknown-elf-gcc
+LD := riscv64-unknown-elf-ld
+OBJCOPY := riscv64-unknown-elf-objcopy
+
+CFLAGS := -march=rv32imac_zicsr -mabi=ilp32 -ffreestanding -nostdlib -nostdinc -Wall -Wextra -Werror -fno-pic -fno-pie -fno-stack-protector
+LDFLAGS := -m elf32lriscv
+
+KERNEL_OBJS := \
+	$(BUILD_DIR)/kernel_entry_riscv.o \
+	$(BUILD_DIR)/trap_riscv.o \
+	$(BUILD_DIR)/trap.o \
+	$(BUILD_DIR)/kernel.o \
+	$(BUILD_DIR)/console.o \
+	$(BUILD_DIR)/memory.o \
+	$(BUILD_DIR)/elf_loader.o
+
+.PHONY: all clean run
+
+all: $(BUILD_DIR)/kernel.elf
+
+clean:
+	chmod -R u+w $(BUILD_DIR) 2>/dev/null || true
+	rm -rf $(BUILD_DIR)
+
+run: $(BUILD_DIR)/kernel.elf
+	qemu-system-riscv32 -machine virt -nographic -bios none -kernel $(BUILD_DIR)/kernel.elf
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/kernel_entry_riscv.o: $(KERNEL_DIR)/kernel_entry_riscv.S | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/trap_riscv.o: $(KERNEL_DIR)/trap_riscv.S | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/trap.o: $(KERNEL_DIR)/trap.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/kernel.o: $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/console.o: $(KERNEL_DIR)/console.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/memory.o: $(KERNEL_DIR)/memory.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/elf_loader.o: $(KERNEL_DIR)/elf_loader.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/user_task_a_riscv.o: $(USER_DIR)/user_task_a_riscv.S | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/user_task_b_riscv.o: $(USER_DIR)/user_task_b_riscv.S | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/user_a.elf: $(BUILD_DIR)/user_task_a_riscv.o $(USER_DIR)/user_riscv.ld
+	$(LD) $(LDFLAGS) -T $(USER_DIR)/user_riscv.ld -o $@ $(BUILD_DIR)/user_task_a_riscv.o
+
+$(BUILD_DIR)/user_b.elf: $(BUILD_DIR)/user_task_b_riscv.o $(USER_DIR)/user_riscv.ld
+	$(LD) $(LDFLAGS) -T $(USER_DIR)/user_riscv.ld -o $@ $(BUILD_DIR)/user_task_b_riscv.o
+
+$(BUILD_DIR)/user_a_program.o: $(BUILD_DIR)/user_a.elf
+	$(LD) -m elf32lriscv -r -b binary $< -o $@
+
+$(BUILD_DIR)/user_b_program.o: $(BUILD_DIR)/user_b.elf
+	$(LD) -m elf32lriscv -r -b binary $< -o $@
+
+$(BUILD_DIR)/disk.img: $(BUILD_DIR)/user_a.elf $(BUILD_DIR)/user_b.elf $(TOOLS_DIR)/make_fat32_image.py | $(BUILD_DIR)
+	python3 $(TOOLS_DIR)/make_fat32_image.py $@
+
+$(BUILD_DIR)/disk_program.o: $(BUILD_DIR)/disk.img
+	$(LD) -m elf32lriscv -r -b binary $< -o $@
+
+$(BUILD_DIR)/kernel.elf: $(KERNEL_OBJS) $(BUILD_DIR)/user_a_program.o $(BUILD_DIR)/user_b_program.o $(BUILD_DIR)/disk_program.o $(KERNEL_DIR)/linker.ld
+	$(LD) $(LDFLAGS) -T $(KERNEL_DIR)/linker.ld -o $@ $(KERNEL_OBJS) $(BUILD_DIR)/user_a_program.o $(BUILD_DIR)/user_b_program.o $(BUILD_DIR)/disk_program.o
