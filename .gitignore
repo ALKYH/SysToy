@@ -1,5 +1,7 @@
 build/
 .pytest_cache/
+projects/
+outputs/
 __pycache__/
 .venv/
 *.pyc
@@ -8,3 +10,4 @@ __pycache__/
 *.img
 *.log
 *.out
+
