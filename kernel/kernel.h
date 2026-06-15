@@ -17,6 +17,11 @@ struct fat32_file_view {
     u32 size;
 };
 
+struct fat32_dir_listing {
+    char names[16][12];
+    u32 count;
+};
+
 struct trap_frame {
     u32 ra;
     u32 gp;
@@ -65,6 +70,7 @@ void serial_init(void);
 void console_write(const char* text);
 void console_write_line(const char* text);
 void console_write_hex(u32 value);
+char console_read_char(void);
 
 void memory_init(u32 start, u32 size);
 void* memory_alloc(u32 size);
@@ -72,6 +78,7 @@ u32 memory_remaining(void);
 
 int elf_load_image(const u8* elf_data, u32 elf_size, struct loaded_program* program);
 int fat32_load_root_file(const u8* image, const char* name_11, struct fat32_file_view* file);
+int fat32_list_root_files(const u8* image, struct fat32_dir_listing* listing);
 u32 syscall_dispatcher(struct trap_frame* frame, u32 current_mepc);
 void enter_user_mode(u32 entry_point, u32 user_stack);
 void trap_init(void);

@@ -14,8 +14,12 @@ TOTAL_SECTORS = 2048
 ROOT_CLUSTER = 2
 MEDIA = 0xF8
 ROOT_DIR_ENTRIES = [
-    ("TASKA   ELF", Path("build/user_a.elf")),
-    ("TASKB   ELF", Path("build/user_b.elf")),
+    ("LAB2    ELF", Path("build/lab2_user.elf")),
+    ("LAB3    ELF", Path("build/lab3_user.elf")),
+    ("LAB4A   ELF", Path("build/lab4_task_a.elf")),
+    ("LAB4B   ELF", Path("build/lab4_task_b.elf")),
+    ("LAB5A   ELF", Path("build/lab5_task_a.elf")),
+    ("LAB5B   ELF", Path("build/lab5_task_b.elf")),
 ]
 CLUSTER_SIZE = BYTES_PER_SECTOR * SECTORS_PER_CLUSTER
 

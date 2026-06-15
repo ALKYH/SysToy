@@ -87,8 +87,8 @@ def test_trap_dispatch_uses_riscv_syscall_abi():
 
 def test_user_tasks_use_string_pointer_syscall_payload():
     for path_str, fragments in [
-        ("user/user_task_a_riscv.S", ["Hello", ", ", "unsafe +5", "safe +5"]),
-        ("user/user_task_b_riscv.S", ["World", "!", "unsafe +7", "safe +7"]),
+        ("user/lab5_task_a_riscv.S", ["unsafe +5", "safe +5"]),
+        ("user/lab5_task_b_riscv.S", ["unsafe +7", "safe +7"]),
     ]:
         text = Path(path_str).read_text(encoding="utf-8")
 
@@ -111,8 +111,8 @@ def test_kernel_defines_shared_memory_and_semaphore_primitives():
 
 
 def test_user_tasks_exercise_locked_and_unlocked_bank_slots():
-    text_a = Path("user/user_task_a_riscv.S").read_text(encoding="utf-8")
-    text_b = Path("user/user_task_b_riscv.S").read_text(encoding="utf-8")
+    text_a = Path("user/lab5_task_a_riscv.S").read_text(encoding="utf-8")
+    text_b = Path("user/lab5_task_b_riscv.S").read_text(encoding="utf-8")
 
     for text in (text_a, text_b):
         assert "li a7, 4" in text
@@ -152,6 +152,13 @@ def test_fat32_tool_can_build_and_parse_image():
     image_path.parent.mkdir(parents=True, exist_ok=True)
 
     subprocess.run(
+        ["wsl", "bash", "-lc", "cd /mnt/e/Projects/SysToy && make -f Makefile.wsl all"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    subprocess.run(
         [sys.executable, "tools/make_fat32_image.py", str(image_path)],
         check=True,
         capture_output=True,
@@ -169,46 +176,81 @@ def test_fat32_tool_can_build_and_parse_image():
     assert data["sectors_per_cluster"] == 1
     assert data["fat_count"] == 2
     assert data["root_cluster"] == 2
-    assert "TASKA.ELF" in data["entries"]
-    assert "TASKB.ELF" in data["entries"]
+    assert "LAB2.ELF" in data["entries"]
+    assert "LAB3.ELF" in data["entries"]
+    assert "LAB4A.ELF" in data["entries"]
+    assert "LAB4B.ELF" in data["entries"]
+    assert "LAB5A.ELF" in data["entries"]
+    assert "LAB5B.ELF" in data["entries"]
 
 
 def test_kernel_has_fat32_loader_entry_points():
     text = Path("kernel/kernel.c").read_text(encoding="utf-8")
     header = Path("kernel/kernel.h").read_text(encoding="utf-8")
+    loader = Path("kernel/elf_loader.c").read_text(encoding="utf-8")
     makefile = Path("Makefile.wsl").read_text(encoding="utf-8")
 
     assert "load_user_program_from_disk" in text
     assert "fat32_load_root_file" in text or "fat32_load_root_file" in header
+    assert "fat32_list_root_files" in loader
     assert "disk.img" in makefile
 
 
-def test_hello_world_demo_flow_is_wired_into_kernel_and_user_tasks():
-    kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
-    task_a_text = Path("user/user_task_a_riscv.S").read_text(encoding="utf-8")
-    task_b_text = Path("user/user_task_b_riscv.S").read_text(encoding="utf-8")
+def test_kernel_has_serial_lab_selector_and_phase_runners():
+    text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    console_text = Path("kernel/console.c").read_text(encoding="utf-8")
 
-    assert "Hello, World" in kernel_text
-    assert "[demo]" in kernel_text
+    assert "select_lab_from_console" in text
+    assert "run_lab1_environment" in text
+    assert "run_lab2_boot_and_syscall" in text
+    assert "run_lab3_memory_and_elf" in text
+    assert "run_lab4_scheduler" in text
+    assert "run_lab5_synchronization" in text
+    assert "run_lab6_fat32" in text
+    assert "selected_lab = select_lab_from_console()" in text
+    assert "select_disk_program_from_console" in text
+    assert "print_disk_listing" in text
+    assert "[sched] " in text
+    assert "console_read_char" in console_text
+
+
+def test_lab_selection_flow_is_wired_into_kernel_and_user_tasks():
+    kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    lab2_text = Path("user/lab2_user_riscv.S").read_text(encoding="utf-8")
+    lab3_text = Path("user/lab3_user_riscv.S").read_text(encoding="utf-8")
+    task_a_text = Path("user/lab4_task_a_riscv.S").read_text(encoding="utf-8")
+    task_b_text = Path("user/lab4_task_b_riscv.S").read_text(encoding="utf-8")
+    sync_a_text = Path("user/lab5_task_a_riscv.S").read_text(encoding="utf-8")
+    sync_b_text = Path("user/lab5_task_b_riscv.S").read_text(encoding="utf-8")
+
+    assert "SysToy unified lab selector" in kernel_text
+    assert "run_lab2_boot_and_syscall" in kernel_text
+    assert "run_lab6_fat32" in kernel_text
+    assert "LAB2    ELF" in kernel_text
+    assert "LAB3    ELF" in kernel_text
+    assert "LAB4A   ELF" in kernel_text
+    assert "LAB5A   ELF" in kernel_text
     assert "shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]" in kernel_text
     assert "shared_words[SHARED_SLOT_ACCOUNT_SAFE]" in kernel_text
-    assert "TaskA" in kernel_text
-    assert "TaskB" in kernel_text
+    assert "Lab4A" in kernel_text
+    assert "Lab4B" in kernel_text
     assert "SYSCALL_DEMO_DONE" in kernel_text
     assert "task done" in kernel_text
+    assert '.asciz "Lab2 user program entered U-mode"' in lab2_text
+    assert '.asciz "Lab2 syscall path is alive"' in lab2_text
+    assert "li a7, 6" in lab2_text
+    assert '.asciz "Lab3 memory allocator is ready"' in lab3_text
+    assert '.asciz "Lab3 ELF loader entered user mode"' in lab3_text
 
-    assert '.asciz "Hello"' in task_a_text
-    assert '.asciz ", "' in task_a_text
-    assert '.asciz "unsafe' in task_a_text
-    assert '.asciz "safe' in task_a_text
-    assert "li a7, 4" in task_a_text
-    assert "li a7, 5" in task_a_text
+    assert '.asciz "Lab4 TaskA tick source"' in task_a_text
+    assert '.asciz "Lab4 round robin A"' in task_a_text
     assert "li a7, 6" in task_a_text
 
-    assert '.asciz "World"' in task_b_text
-    assert '.asciz "!"' in task_b_text
-    assert '.asciz "unsafe' in task_b_text
-    assert '.asciz "safe' in task_b_text
-    assert "li a7, 4" in task_b_text
-    assert "li a7, 5" in task_b_text
+    assert '.asciz "Lab4 TaskB tick source"' in task_b_text
+    assert '.asciz "Lab4 round robin B"' in task_b_text
     assert "li a7, 6" in task_b_text
+
+    assert '.asciz "unsafe +5"' in sync_a_text
+    assert '.asciz "safe +5"' in sync_a_text
+    assert '.asciz "unsafe +7"' in sync_b_text
+    assert '.asciz "safe +7"' in sync_b_text

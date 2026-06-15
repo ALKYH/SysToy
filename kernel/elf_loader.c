@@ -88,6 +88,32 @@ static int names_equal_11(const u8* lhs, const char* rhs) {
     return 1;
 }
 
+static void copy_name_11_to_text(const u8* raw, char* out) {
+    u32 src = 0;
+    u32 dst = 0;
+    u32 end = 8;
+
+    while (end > 0 && raw[end - 1] == ' ') {
+        end -= 1;
+    }
+
+    for (src = 0; src < end; ++src) {
+        out[dst++] = (char)raw[src];
+    }
+
+    if (raw[8] != ' ' || raw[9] != ' ' || raw[10] != ' ') {
+        out[dst++] = '.';
+        for (src = 8; src < 11; ++src) {
+            if (raw[src] == ' ') {
+                break;
+            }
+            out[dst++] = (char)raw[src];
+        }
+    }
+
+    out[dst] = '\0';
+}
+
 int fat32_load_root_file(const u8* image, const char* name_11, struct fat32_file_view* file) {
     const struct fat32_boot_sector* boot = (const struct fat32_boot_sector*)image;
     u32 bytes_per_sector = boot->bytes_per_sector;
@@ -126,6 +152,38 @@ int fat32_load_root_file(const u8* image, const char* name_11, struct fat32_file
     }
 
     return -3;
+}
+
+int fat32_list_root_files(const u8* image, struct fat32_dir_listing* listing) {
+    const struct fat32_boot_sector* boot = (const struct fat32_boot_sector*)image;
+    u32 bytes_per_sector = boot->bytes_per_sector;
+    u32 fat_sectors = boot->fat_size_32;
+    u32 data_start_sector = boot->reserved_sector_count + boot->fat_count * fat_sectors;
+    u32 root_dir_offset = data_start_sector * bytes_per_sector;
+    u32 idx;
+
+    if (boot->bytes_per_sector == 0 || boot->sectors_per_cluster == 0) {
+        return -1;
+    }
+
+    listing->count = 0;
+    for (idx = 0; idx < 16; ++idx) {
+        const struct fat32_dir_entry* entry =
+            (const struct fat32_dir_entry*)(image + root_dir_offset + idx * sizeof(struct fat32_dir_entry));
+
+        if (entry->name[0] == 0x00 || entry->name[0] == 0xE5) {
+            continue;
+        }
+
+        if (listing->count >= 16) {
+            break;
+        }
+
+        copy_name_11_to_text(entry->name, listing->names[listing->count]);
+        listing->count += 1;
+    }
+
+    return 0;
 }
 
 int elf_load_image(const u8* elf_data, u32 elf_size, struct loaded_program* program) {
