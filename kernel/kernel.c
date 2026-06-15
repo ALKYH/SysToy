@@ -29,8 +29,12 @@ struct semaphore {
 static struct task tasks[2];
 static int task_count = 0;
 static int current_task = 0;
+static int demo_done[2];
+static int demo_reported = 0;
 static u32 shared_words[4];
 static struct semaphore semaphores[2];
+
+static void report_demo_summary(void);
 
 static void memory_zero(void* dst, u32 size) {
     u8* bytes = (u8*)dst;
@@ -77,6 +81,23 @@ static void add_task(u32 entry, u32 user_stack, u32 image_base) {
     task->frame.sp = user_stack;
     task->mepc = entry;
     task->image_base = image_base;
+}
+
+static void console_write_u32(u32 value) {
+    char buffer[11];
+    int index = 10;
+
+    buffer[index] = '\0';
+    if (value == 0) {
+        buffer[--index] = '0';
+    } else {
+        while (value > 0 && index > 0) {
+            buffer[--index] = (char)('0' + (value % 10));
+            value /= 10;
+        }
+    }
+
+    console_write(&buffer[index]);
 }
 
 static u32 semaphore_wait(u32 sem_id, u32 current_mepc) {
@@ -172,6 +193,22 @@ u32 syscall_dispatcher(struct trap_frame* frame, u32 current_mepc) {
     case SYSCALL_SEM_SIGNAL:
         return semaphore_signal(arg0, current_mepc);
 
+    case SYSCALL_DEMO_DONE:
+        if (arg0 < 2) {
+            demo_done[arg0] = 1;
+            console_write("[demo] task done: ");
+            console_write(arg0 == 0 ? "TaskA" : "TaskB");
+            console_write("\n");
+
+            if (demo_done[0] && demo_done[1]) {
+                report_demo_summary();
+                for (;;) {
+                    __asm__ volatile ("wfi");
+                }
+            }
+        }
+        return current_mepc + 4;
+
     default:
         console_write("[syscall] unknown call: ");
         console_write_hex(call_id);
@@ -186,6 +223,16 @@ u32 scheduler_handle_timer(struct trap_frame* frame, u32 current_mepc) {
 
     if (task_count < 2) {
         return current_mepc;
+    }
+
+    if (demo_done[current_task]) {
+        next_task = (current_task + 1) % task_count;
+        if (demo_done[next_task]) {
+            return current_mepc;
+        }
+        current_task = next_task;
+        memory_copy_block(frame, &tasks[current_task].frame, sizeof(*frame));
+        return tasks[current_task].mepc;
     }
 
     saved_user_sp = tasks[current_task].frame.sp;
@@ -268,6 +315,31 @@ static void load_user_program_from_disk(
     add_task(program.entry_point, user_stack, (u32)program.image);
 }
 
+static void run_hello_demo(void) {
+    console_write("[demo] ");
+    console_write("Hello, World");
+    console_write(" from SysToy");
+    console_write("\n");
+}
+
+static void report_demo_summary(void) {
+    if (demo_reported) {
+        return;
+    }
+    demo_reported = 1;
+
+    console_write("[demo] ");
+    console_write("unsafe final=");
+    console_write_u32(shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]);
+    console_write(" safe final=");
+    console_write_u32(shared_words[SHARED_SLOT_ACCOUNT_SAFE]);
+    console_write("\n");
+
+    console_write("[demo] ");
+    console_write("features: boot -> trap -> syscall -> FAT32 -> ELF -> schedule -> shared memory -> semaphore");
+    console_write("\n");
+}
+
 void kmain(void) {
     serial_init();
     console_clear();
@@ -278,6 +350,8 @@ void kmain(void) {
     shared_words[SHARED_SLOT_ACCOUNT_UNSAFE] = 100;
     shared_words[SHARED_SLOT_ACCOUNT_SAFE] = 100;
     semaphores[SHARED_SLOT_SEM_ID].value = 1;
+    demo_done[0] = 0;
+    demo_done[1] = 0;
     console_write("[sync] shared unsafe=");
     console_write_hex(shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]);
     console_write(" safe=");
@@ -289,6 +363,8 @@ void kmain(void) {
     load_user_program_from_disk("TASKA   ELF", USER_STACK_A, "TaskA");
     load_user_program_from_disk("TASKB   ELF", USER_STACK_B, "TaskB");
 
+    run_hello_demo();
+    console_write_line("[demo] scheduling TaskA and TaskB from FAT32-backed ELF images");
     console_write_line("Starting timer-driven scheduler...");
     current_task = 0;
     enter_user_mode(tasks[0].mepc, tasks[0].frame.sp);

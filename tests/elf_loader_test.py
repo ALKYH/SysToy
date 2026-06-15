@@ -86,16 +86,16 @@ def test_trap_dispatch_uses_riscv_syscall_abi():
 
 
 def test_user_tasks_use_string_pointer_syscall_payload():
-    for path_str, label in [
-        ("user/user_task_a_riscv.S", "TaskA"),
-        ("user/user_task_b_riscv.S", "TaskB"),
+    for path_str, fragments in [
+        ("user/user_task_a_riscv.S", ["Hello", ", ", "unsafe +5", "safe +5"]),
+        ("user/user_task_b_riscv.S", ["World", "!", "unsafe +7", "safe +7"]),
     ]:
         text = Path(path_str).read_text(encoding="utf-8")
 
         assert "la a0, unsafe_message" in text
         assert "li a2, 0" in text
-        assert f'.asciz "{label} unsafe"' in text
-        assert f'.asciz "{label} safe"' in text
+        for fragment in fragments:
+            assert f'.asciz "{fragment}"' in text
 
 
 def test_kernel_defines_shared_memory_and_semaphore_primitives():
@@ -181,3 +181,34 @@ def test_kernel_has_fat32_loader_entry_points():
     assert "load_user_program_from_disk" in text
     assert "fat32_load_root_file" in text or "fat32_load_root_file" in header
     assert "disk.img" in makefile
+
+
+def test_hello_world_demo_flow_is_wired_into_kernel_and_user_tasks():
+    kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    task_a_text = Path("user/user_task_a_riscv.S").read_text(encoding="utf-8")
+    task_b_text = Path("user/user_task_b_riscv.S").read_text(encoding="utf-8")
+
+    assert "Hello, World" in kernel_text
+    assert "[demo]" in kernel_text
+    assert "shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]" in kernel_text
+    assert "shared_words[SHARED_SLOT_ACCOUNT_SAFE]" in kernel_text
+    assert "TaskA" in kernel_text
+    assert "TaskB" in kernel_text
+    assert "SYSCALL_DEMO_DONE" in kernel_text
+    assert "task done" in kernel_text
+
+    assert '.asciz "Hello"' in task_a_text
+    assert '.asciz ", "' in task_a_text
+    assert '.asciz "unsafe' in task_a_text
+    assert '.asciz "safe' in task_a_text
+    assert "li a7, 4" in task_a_text
+    assert "li a7, 5" in task_a_text
+    assert "li a7, 6" in task_a_text
+
+    assert '.asciz "World"' in task_b_text
+    assert '.asciz "!"' in task_b_text
+    assert '.asciz "unsafe' in task_b_text
+    assert '.asciz "safe' in task_b_text
+    assert "li a7, 4" in task_b_text
+    assert "li a7, 5" in task_b_text
+    assert "li a7, 6" in task_b_text

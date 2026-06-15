@@ -17,6 +17,7 @@ ROOT_DIR_ENTRIES = [
     ("TASKA   ELF", Path("build/user_a.elf")),
     ("TASKB   ELF", Path("build/user_b.elf")),
 ]
+CLUSTER_SIZE = BYTES_PER_SECTOR * SECTORS_PER_CLUSTER
 
 
 def build_boot_sector() -> bytes:
@@ -55,8 +56,6 @@ def build_fat_sector() -> bytes:
     struct.pack_into("<I", fat, 0, 0x0FFFFFF8)
     struct.pack_into("<I", fat, 4, 0x0FFFFFFF)
     struct.pack_into("<I", fat, 8, 0x0FFFFFFF)
-    struct.pack_into("<I", fat, 12, 0x0FFFFFFF)
-    struct.pack_into("<I", fat, 16, 0x0FFFFFFF)
     return bytes(fat)
 
 
@@ -79,22 +78,37 @@ def build_image() -> bytes:
 
     fat1_offset = RESERVED_SECTORS * BYTES_PER_SECTOR
     fat2_offset = fat1_offset + len(fat)
-    image[fat1_offset:fat1_offset + len(fat)] = fat
-    image[fat2_offset:fat2_offset + len(fat)] = fat
 
     data_start_sector = RESERVED_SECTORS + FAT_COUNT * SECTORS_PER_FAT
     root_dir_offset = data_start_sector * BYTES_PER_SECTOR
     root_dir = bytearray(BYTES_PER_SECTOR)
+    fat_mut = bytearray(fat)
+    next_cluster = ROOT_CLUSTER + 1
 
     for idx, (name_11, file_path) in enumerate(ROOT_DIR_ENTRIES):
         file_bytes = file_path.read_bytes()
-        cluster = 3 + idx
-        cluster_offset = root_dir_offset + (cluster - ROOT_CLUSTER) * BYTES_PER_SECTOR
+        cluster = next_cluster
+        cluster_count = max(1, (len(file_bytes) + CLUSTER_SIZE - 1) // CLUSTER_SIZE)
+        cluster_offset = root_dir_offset + (cluster - ROOT_CLUSTER) * CLUSTER_SIZE
         image[cluster_offset:cluster_offset + len(file_bytes)] = file_bytes
+
+        for cluster_index in range(cluster_count):
+            current_cluster = cluster + cluster_index
+            fat_entry_offset = current_cluster * 4
+            next_value = (
+                0x0FFFFFFF
+                if cluster_index == cluster_count - 1
+                else current_cluster + 1
+            )
+            struct.pack_into("<I", fat_mut, fat_entry_offset, next_value)
+
         entry = build_dir_entry(name_11, cluster, len(file_bytes))
         root_dir[idx * 32:(idx + 1) * 32] = entry
+        next_cluster += cluster_count
 
     image[root_dir_offset:root_dir_offset + BYTES_PER_SECTOR] = root_dir
+    image[fat1_offset:fat1_offset + len(fat_mut)] = fat_mut
+    image[fat2_offset:fat2_offset + len(fat_mut)] = fat_mut
     return bytes(image)
 
 

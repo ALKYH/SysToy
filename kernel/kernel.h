@@ -57,6 +57,7 @@ enum {
     SYSCALL_SHARED_WRITE = 3,
     SYSCALL_SEM_WAIT = 4,
     SYSCALL_SEM_SIGNAL = 5,
+    SYSCALL_DEMO_DONE = 6,
 };
 
 void console_clear(void);
