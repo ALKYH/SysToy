@@ -7,6 +7,8 @@
 #define CLINT_MTIME    0x0200BFF8u
 #define TIMER_INTERVAL 50000u
 
+extern void return_to_lab_selector_from_trap(void);
+
 static inline u32 csr_read_mcause(void) {
     u32 value;
     __asm__ volatile ("csrr %0, mcause" : "=r"(value));
@@ -85,6 +87,10 @@ void trap_dispatch(struct trap_frame* frame) {
         console_write("[trap] ecall\n");
         csr_write_mepc(syscall_dispatcher(frame, csr_read_mepc()));
         csr_set_mie(MIE_MTIE);
+        if (consume_menu_return_request()) {
+            console_write("[menu] program finished, returning to lab selector\n");
+            return_to_lab_selector_from_trap();
+        }
         return;
     }
 

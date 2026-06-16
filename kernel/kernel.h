@@ -12,6 +12,12 @@ struct loaded_program {
     u32 size;
 };
 
+struct embedded_program {
+    const u8* start;
+    u32 size;
+    const char* label;
+};
+
 struct fat32_file_view {
     const u8* data;
     u32 size;
@@ -65,6 +71,14 @@ enum {
     SYSCALL_DEMO_DONE = 6,
 };
 
+enum {
+    KERNEL_HEAP_START = 0x80400000u,
+    KERNEL_HEAP_SIZE = 0x00100000u,
+    USER_STACK_A = 0x80600000u,
+    USER_STACK_B = 0x80601000u,
+    USER_STACK_SINGLE = 0x80602000u,
+};
+
 void console_clear(void);
 void serial_init(void);
 void console_write(const char* text);
@@ -81,8 +95,20 @@ int fat32_load_root_file(const u8* image, const char* name_11, struct fat32_file
 int fat32_list_root_files(const u8* image, struct fat32_dir_listing* listing);
 u32 syscall_dispatcher(struct trap_frame* frame, u32 current_mepc);
 void enter_user_mode(u32 entry_point, u32 user_stack);
+void start_task_execution(void);
 void trap_init(void);
 void timer_schedule_next(void);
 u32 scheduler_handle_timer(struct trap_frame* frame, u32 current_mepc);
+int consume_menu_return_request(void);
+void lab_selection_loop_entry(void);
+void boot_lab_user_program(const struct embedded_program* program, u32 user_stack);
+void load_user_program_from_disk(const char* file_name_11, u32 user_stack, const char* label);
+int select_disk_program_from_console(void);
+void run_lab1_environment(void);
+void run_lab2_boot_and_syscall(void);
+void run_lab3_memory_and_elf(void);
+void run_lab4_scheduler(void);
+void run_lab5_synchronization(void);
+void run_lab6_fat32(void);
 
 #endif

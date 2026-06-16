@@ -1,5 +1,7 @@
 BUILD_DIR := build
 KERNEL_DIR := kernel
+RUNTIME_DIR := kernel/runtime
+LABS_DIR := kernel/labs
 USER_DIR := user
 TOOLS_DIR := tools
 
@@ -15,6 +17,13 @@ KERNEL_OBJS := \
 	$(BUILD_DIR)/trap_riscv.o \
 	$(BUILD_DIR)/trap.o \
 	$(BUILD_DIR)/kernel.o \
+	$(BUILD_DIR)/runtime_state.o \
+	$(BUILD_DIR)/lab1.o \
+	$(BUILD_DIR)/lab2.o \
+	$(BUILD_DIR)/lab3.o \
+	$(BUILD_DIR)/lab4.o \
+	$(BUILD_DIR)/lab5.o \
+	$(BUILD_DIR)/lab6.o \
 	$(BUILD_DIR)/console.o \
 	$(BUILD_DIR)/memory.o \
 	$(BUILD_DIR)/elf_loader.o
@@ -43,6 +52,27 @@ $(BUILD_DIR)/trap.o: $(KERNEL_DIR)/trap.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/kernel.o: $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/runtime_state.o: $(RUNTIME_DIR)/runtime_state.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/lab1.o: $(LABS_DIR)/lab1/lab1.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/lab2.o: $(LABS_DIR)/lab2/lab2.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/lab3.o: $(LABS_DIR)/lab3/lab3.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/lab4.o: $(LABS_DIR)/lab4/lab4.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/lab5.o: $(LABS_DIR)/lab5/lab5.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/lab6.o: $(LABS_DIR)/lab6/lab6.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/console.o: $(KERNEL_DIR)/console.c $(KERNEL_DIR)/kernel.h | $(BUILD_DIR)

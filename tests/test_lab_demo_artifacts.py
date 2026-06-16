@@ -48,14 +48,17 @@ def test_notebook_builder_generates_unified_ipynb_with_all_labs():
 
 def test_kernel_exposes_lab_selection_and_serial_input_paths():
     kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    lab6_text = Path("kernel/labs/lab6/lab6.c").read_text(encoding="utf-8")
     console_text = Path("kernel/console.c").read_text(encoding="utf-8")
     makefile_text = Path("Makefile.wsl").read_text(encoding="utf-8")
 
-    assert "select_lab_from_console" in kernel_text
-    assert "select_disk_program_from_console" in kernel_text
-    assert "run_lab1_environment" in kernel_text
-    assert "run_lab6_fat32" in kernel_text
-    assert "selected_lab" in kernel_text
+    assert "lab_selection_loop_entry" in kernel_text
+    assert "select_lab_from_console" in runtime_text
+    assert "run_lab1_environment" in runtime_text
+    assert "run_lab6_fat32" in runtime_text
+    assert "selected_lab" in runtime_text
+    assert "Select disk program [1-4]" in lab6_text
     assert "console_read_char" in console_text
     assert "UART_RHR" in console_text
     assert "lab2_user_riscv.S" in makefile_text
@@ -64,3 +67,28 @@ def test_kernel_exposes_lab_selection_and_serial_input_paths():
     assert "lab4_task_b_riscv.S" in makefile_text
     assert "lab5_task_a_riscv.S" in makefile_text
     assert "lab5_task_b_riscv.S" in makefile_text
+
+
+def test_kernel_can_return_to_lab_selector_after_program_completion():
+    runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    trap_text = Path("kernel/trap.c").read_text(encoding="utf-8")
+    entry_text = Path("kernel/kernel_entry_riscv.S").read_text(encoding="utf-8")
+
+    assert "menu_return_requested" in runtime_text
+    assert "lab_selection_loop_entry" in runtime_text
+    assert "[menu] program finished, returning to lab selector" in trap_text
+    assert "return_to_lab_selector_from_trap" in trap_text
+    assert ".globl return_to_lab_selector_from_trap" in entry_text
+
+
+def test_kernel_sources_are_split_by_runtime_and_lab_folders():
+    runtime_dir = Path("kernel/runtime")
+    labs_dir = Path("kernel/labs")
+    makefile_text = Path("Makefile.wsl").read_text(encoding="utf-8")
+
+    assert runtime_dir.is_dir()
+    for lab_name in ["lab1", "lab2", "lab3", "lab4", "lab5", "lab6"]:
+        assert (labs_dir / lab_name).is_dir()
+
+    assert "RUNTIME_DIR := kernel/runtime" in makefile_text
+    assert "LABS_DIR := kernel/labs" in makefile_text

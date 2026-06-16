@@ -11,7 +11,7 @@ def read_u32(data: bytes, offset: int) -> int:
 
 
 def test_user_elf_header_is_valid():
-    data = Path("build/user_a.elf").read_bytes()
+    data = Path("build/lab2_user.elf").read_bytes()
 
     assert data[:4] == b"\x7fELF"
     assert data[4] == 1
@@ -21,7 +21,7 @@ def test_user_elf_header_is_valid():
 
 
 def test_user_elf_has_program_header():
-    data = Path("build/user_a.elf").read_bytes()
+    data = Path("build/lab2_user.elf").read_bytes()
 
     phoff = read_u32(data, 28)
     phentsize = read_u16(data, 42)
@@ -33,7 +33,7 @@ def test_user_elf_has_program_header():
 
 
 def test_user_elf_entry_inside_load_segment():
-    data = Path("build/user_a.elf").read_bytes()
+    data = Path("build/lab2_user.elf").read_bytes()
 
     entry = read_u32(data, 24)
     phoff = read_u32(data, 28)
@@ -99,7 +99,7 @@ def test_user_tasks_use_string_pointer_syscall_payload():
 
 
 def test_kernel_defines_shared_memory_and_semaphore_primitives():
-    text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
 
     assert "struct semaphore" in text
     assert "shared_words" in text
@@ -185,7 +185,7 @@ def test_fat32_tool_can_build_and_parse_image():
 
 
 def test_kernel_has_fat32_loader_entry_points():
-    text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
     header = Path("kernel/kernel.h").read_text(encoding="utf-8")
     loader = Path("kernel/elf_loader.c").read_text(encoding="utf-8")
     makefile = Path("Makefile.wsl").read_text(encoding="utf-8")
@@ -197,25 +197,36 @@ def test_kernel_has_fat32_loader_entry_points():
 
 
 def test_kernel_has_serial_lab_selector_and_phase_runners():
-    text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    lab2_text = Path("kernel/labs/lab2/lab2.c").read_text(encoding="utf-8")
+    lab3_text = Path("kernel/labs/lab3/lab3.c").read_text(encoding="utf-8")
+    lab4_text = Path("kernel/labs/lab4/lab4.c").read_text(encoding="utf-8")
+    lab5_text = Path("kernel/labs/lab5/lab5.c").read_text(encoding="utf-8")
+    lab6_text = Path("kernel/labs/lab6/lab6.c").read_text(encoding="utf-8")
     console_text = Path("kernel/console.c").read_text(encoding="utf-8")
 
-    assert "select_lab_from_console" in text
-    assert "run_lab1_environment" in text
-    assert "run_lab2_boot_and_syscall" in text
-    assert "run_lab3_memory_and_elf" in text
-    assert "run_lab4_scheduler" in text
-    assert "run_lab5_synchronization" in text
-    assert "run_lab6_fat32" in text
-    assert "selected_lab = select_lab_from_console()" in text
-    assert "select_disk_program_from_console" in text
-    assert "print_disk_listing" in text
-    assert "[sched] " in text
+    assert "lab_selection_loop_entry" in kernel_text
+    assert "select_lab_from_console" in runtime_text
+    assert "run_lab1_environment" in runtime_text
+    assert "run_lab2_boot_and_syscall" in runtime_text
+    assert "run_lab3_memory_and_elf" in runtime_text
+    assert "run_lab4_scheduler" in runtime_text
+    assert "run_lab5_synchronization" in runtime_text
+    assert "run_lab6_fat32" in runtime_text
+    assert "selected_lab = select_lab_from_console()" in runtime_text
+    assert "Select disk program [1-4]" in lab6_text
+    assert "[sched] " in runtime_text
+    assert "boot_lab_user_program" in lab2_text
+    assert "memory_remaining()" in lab3_text
+    assert "start_task_execution()" in lab4_text
+    assert "start_task_execution()" in lab5_text
     assert "console_read_char" in console_text
 
 
 def test_lab_selection_flow_is_wired_into_kernel_and_user_tasks():
-    kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
+    runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    lab6_kernel_text = Path("kernel/labs/lab6/lab6.c").read_text(encoding="utf-8")
     lab2_text = Path("user/lab2_user_riscv.S").read_text(encoding="utf-8")
     lab3_text = Path("user/lab3_user_riscv.S").read_text(encoding="utf-8")
     task_a_text = Path("user/lab4_task_a_riscv.S").read_text(encoding="utf-8")
@@ -223,19 +234,19 @@ def test_lab_selection_flow_is_wired_into_kernel_and_user_tasks():
     sync_a_text = Path("user/lab5_task_a_riscv.S").read_text(encoding="utf-8")
     sync_b_text = Path("user/lab5_task_b_riscv.S").read_text(encoding="utf-8")
 
-    assert "SysToy unified lab selector" in kernel_text
-    assert "run_lab2_boot_and_syscall" in kernel_text
-    assert "run_lab6_fat32" in kernel_text
-    assert "LAB2    ELF" in kernel_text
-    assert "LAB3    ELF" in kernel_text
-    assert "LAB4A   ELF" in kernel_text
-    assert "LAB5A   ELF" in kernel_text
-    assert "shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]" in kernel_text
-    assert "shared_words[SHARED_SLOT_ACCOUNT_SAFE]" in kernel_text
-    assert "Lab4A" in kernel_text
-    assert "Lab4B" in kernel_text
-    assert "SYSCALL_DEMO_DONE" in kernel_text
-    assert "task done" in kernel_text
+    assert "SysToy unified lab selector" in runtime_text
+    assert "run_lab2_boot_and_syscall" in runtime_text
+    assert "run_lab6_fat32" in runtime_text
+    assert "LAB2    ELF" in lab6_kernel_text
+    assert "LAB3    ELF" in lab6_kernel_text
+    assert "LAB4A   ELF" in lab6_kernel_text
+    assert "LAB5A   ELF" in lab6_kernel_text
+    assert "shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]" in runtime_text
+    assert "shared_words[SHARED_SLOT_ACCOUNT_SAFE]" in runtime_text
+    assert "Lab4 TaskA" in task_a_text
+    assert "Lab4 TaskB" in task_b_text
+    assert "SYSCALL_DEMO_DONE" in runtime_text
+    assert "task done" in runtime_text
     assert '.asciz "Lab2 user program entered U-mode"' in lab2_text
     assert '.asciz "Lab2 syscall path is alive"' in lab2_text
     assert "li a7, 6" in lab2_text

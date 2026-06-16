@@ -1,5 +1,6 @@
 .section .text
 .globl _start
+.globl return_to_lab_selector_from_trap
 
 _start:
     la sp, kernel_stack_top
@@ -8,6 +9,10 @@ _start:
     la t0, trap_entry
     csrw mtvec, t0
     call kmain
+
+return_to_lab_selector_from_trap:
+    la sp, kernel_stack_top
+    j lab_selection_loop_entry
 
 hang:
     wfi
