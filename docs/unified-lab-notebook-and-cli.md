@@ -95,3 +95,20 @@ python tools/lab_demo.py --lab 6 --action 2
 3. `Lab4` 使用独立的 `lab4_task_a_riscv.S` 与 `lab4_task_b_riscv.S`
 4. `Lab5` 使用独立的 `lab5_task_a_riscv.S` 与 `lab5_task_b_riscv.S`
 5. `Lab6` 进入 FAT32 二级菜单后，可手动选择加载 `LAB2/LAB3/LAB4/LAB5` 对应的 ELF 组合
+
+## 7. 参考资料
+
+本仓库当前 `Lab5` / `kernel/runtime/runtime_state.c` 中涉及的原子同步实现，主要参考以下官方 RISC-V 规范资料：
+
+1. RISC-V Unprivileged ISA 总入口：
+   https://docs.riscv.org/reference/isa/unpriv/unpriv-index.html
+2. `"A" Extension for Atomic Instructions, Version 2.1`：
+   https://docs.riscv.org/reference/isa/unpriv/a-st-ext.html
+3. `RVWMO Memory Consistency Model, Version 2.0`：
+   https://docs.riscv.org/reference/isa/unpriv/rvwmo.html
+
+其中：
+
+1. `lr.w` / `sc.w` 的配对语义可直接参考 `"A"` 扩展章节。
+2. `amoadd.w` 的原子读改写语义同样可参考 `"A"` 扩展章节。
+3. `fence rw, rw` 的顺序约束语义，可结合 Unprivileged ISA 总说明与 `RVWMO` 章节一起理解。
