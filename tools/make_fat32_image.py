@@ -16,6 +16,7 @@ MEDIA = 0xF8
 ROOT_DIR_ENTRIES = [
     ("LAB2    ELF", Path("build/lab2_user.elf")),
     ("LAB3    ELF", Path("build/lab3_user.elf")),
+    ("PRINT   ELF", Path("build/print_user.elf")),
     ("LAB4A   ELF", Path("build/lab4_task_a.elf")),
     ("LAB4B   ELF", Path("build/lab4_task_b.elf")),
     ("LAB5A   ELF", Path("build/lab5_task_a.elf")),

@@ -25,6 +25,7 @@ static int demo_done[2];
 static int demo_reported = 0;
 static int selected_lab = 0;
 static int menu_return_requested = 0;
+static int scheduler_mode = 1;
 static u32 shared_words[4];
 static struct semaphore semaphores[2];
 
@@ -35,10 +36,13 @@ static void add_task(u32 entry, u32 user_stack, u32 image_base, const char* labe
 static void console_write_u32(u32 value);
 static void print_lab_menu(void);
 static int select_lab_from_console(void);
+int select_scheduler_mode_from_console(void);
 static void memory_zero(void* dst, u32 size);
 static void memory_copy_block(void* dst, const void* src, u32 size);
 static u32 semaphore_wait(u32 sem_id, u32 current_mepc);
 static u32 semaphore_signal(u32 sem_id, u32 current_mepc);
+static int semaphore_try_wait_atomic(u32 sem_id);
+static void semaphore_signal_atomic(u32 sem_id);
 static inline void csr_write_mepc(u32 value);
 static inline u32 csr_read_mstatus(void);
 static inline void csr_write_mstatus(u32 value);
@@ -117,6 +121,7 @@ static void reset_runtime_state(void) {
     demo_reported = 0;
     selected_lab = 0;
     menu_return_requested = 0;
+    scheduler_mode = 1;
     demo_done[0] = 0;
     demo_done[1] = 0;
     shared_words[SHARED_SLOT_ACCOUNT_UNSAFE] = 100;
@@ -134,6 +139,52 @@ int consume_menu_return_request(void) {
     return requested;
 }
 
+int scheduler_mode_is_trace(void) {
+    return scheduler_mode == 2;
+}
+
+static int semaphore_try_wait_atomic(u32 sem_id) {
+    volatile u32* value_ptr = &semaphores[sem_id].value;
+    u32 loaded;
+    u32 updated;
+    u32 store_result;
+
+    __asm__ volatile ("fence rw, rw" : : : "memory");
+    do {
+        __asm__ volatile ("lr.w %0, (%1)" : "=r"(loaded) : "r"(value_ptr) : "memory");
+        if (loaded == 0) {
+            __asm__ volatile ("fence rw, rw" : : : "memory");
+            return 0;
+        }
+
+        updated = loaded - 1;
+        __asm__ volatile (
+            "sc.w %0, %1, (%2)"
+            : "=r"(store_result)
+            : "r"(updated), "r"(value_ptr)
+            : "memory"
+        );
+    } while (store_result != 0);
+    __asm__ volatile ("fence rw, rw" : : : "memory");
+    return 1;
+}
+
+static void semaphore_signal_atomic(u32 sem_id) {
+    volatile u32* value_ptr = &semaphores[sem_id].value;
+    u32 increment = 1;
+    u32 previous;
+
+    __asm__ volatile ("fence rw, rw" : : : "memory");
+    __asm__ volatile (
+        "amoadd.w %0, %1, (%2)"
+        : "=r"(previous)
+        : "r"(increment), "r"(value_ptr)
+        : "memory"
+    );
+    (void)previous;
+    __asm__ volatile ("fence rw, rw" : : : "memory");
+}
+
 static u32 semaphore_wait(u32 sem_id, u32 current_mepc) {
     if (sem_id >= 2) {
         console_write("[sync] bad sem wait id=");
@@ -142,11 +193,10 @@ static u32 semaphore_wait(u32 sem_id, u32 current_mepc) {
         return current_mepc + 4;
     }
 
-    if (semaphores[sem_id].value == 0) {
+    if (!semaphore_try_wait_atomic(sem_id)) {
         return current_mepc;
     }
 
-    semaphores[sem_id].value -= 1;
     return current_mepc + 4;
 }
 
@@ -158,7 +208,7 @@ static u32 semaphore_signal(u32 sem_id, u32 current_mepc) {
         return current_mepc + 4;
     }
 
-    semaphores[sem_id].value += 1;
+    semaphore_signal_atomic(sem_id);
     return current_mepc + 4;
 }
 
@@ -442,6 +492,26 @@ static int select_lab_from_console(void) {
             }
             console_write("\n");
             return (int)(selected - '0');
+        }
+    }
+}
+
+int select_scheduler_mode_from_console(void) {
+    char selected;
+
+    console_write_line("[sched] choose mode");
+    console_write_line("1) timer-driven round robin");
+    console_write_line("2) scheduler trace inspection");
+    console_write_line("Select scheduler mode [1-2]: ");
+
+    for (;;) {
+        selected = console_read_char();
+        if (selected == '1' || selected == '2') {
+            scheduler_mode = (selected == '2') ? 2 : 1;
+            console_write("[sched] mode ");
+            console_write(selected == '2' ? "scheduler trace" : "timer-driven");
+            console_write("\n");
+            return scheduler_mode;
         }
     }
 }

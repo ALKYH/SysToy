@@ -110,6 +110,18 @@ def test_kernel_defines_shared_memory_and_semaphore_primitives():
     assert "case SYSCALL_SHARED_WRITE" in text
 
 
+def test_semaphore_updates_use_atomic_kernel_helpers():
+    text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+
+    assert "static int semaphore_try_wait_atomic" in text
+    assert "static void semaphore_signal_atomic" in text
+    assert "lr.w" in text
+    assert "sc.w" in text
+    assert "fence rw, rw" in text
+    assert "semaphores[sem_id].value -= 1;" not in text
+    assert "semaphores[sem_id].value += 1;" not in text
+
+
 def test_user_tasks_exercise_locked_and_unlocked_bank_slots():
     text_a = Path("user/lab5_task_a_riscv.S").read_text(encoding="utf-8")
     text_b = Path("user/lab5_task_b_riscv.S").read_text(encoding="utf-8")
@@ -152,7 +164,7 @@ def test_fat32_tool_can_build_and_parse_image():
     image_path.parent.mkdir(parents=True, exist_ok=True)
 
     subprocess.run(
-        ["wsl", "bash", "-lc", "cd /mnt/e/Projects/SysToy && make -f Makefile.wsl all"],
+        ["wsl", "bash", "-lc", "cd /mnt/e/Projects/SysToy && make -f Makefile.wsl clean all"],
         check=True,
         capture_output=True,
         text=True,
@@ -182,6 +194,7 @@ def test_fat32_tool_can_build_and_parse_image():
     assert "LAB4B.ELF" in data["entries"]
     assert "LAB5A.ELF" in data["entries"]
     assert "LAB5B.ELF" in data["entries"]
+    assert "PRINT.ELF" in data["entries"]
 
 
 def test_kernel_has_fat32_loader_entry_points():
@@ -215,7 +228,8 @@ def test_kernel_has_serial_lab_selector_and_phase_runners():
     assert "run_lab5_synchronization" in runtime_text
     assert "run_lab6_fat32" in runtime_text
     assert "selected_lab = select_lab_from_console()" in runtime_text
-    assert "Select disk program [1-4]" in lab6_text
+    assert "PRINT   ELF" in lab4_text
+    assert "Select disk program [1-5]" in lab6_text
     assert "[sched] " in runtime_text
     assert "boot_lab_user_program" in lab2_text
     assert "memory_remaining()" in lab3_text
@@ -226,25 +240,28 @@ def test_kernel_has_serial_lab_selector_and_phase_runners():
 
 def test_lab_selection_flow_is_wired_into_kernel_and_user_tasks():
     runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    lab4_kernel_text = Path("kernel/labs/lab4/lab4.c").read_text(encoding="utf-8")
     lab6_kernel_text = Path("kernel/labs/lab6/lab6.c").read_text(encoding="utf-8")
     lab2_text = Path("user/lab2_user_riscv.S").read_text(encoding="utf-8")
     lab3_text = Path("user/lab3_user_riscv.S").read_text(encoding="utf-8")
     task_a_text = Path("user/lab4_task_a_riscv.S").read_text(encoding="utf-8")
-    task_b_text = Path("user/lab4_task_b_riscv.S").read_text(encoding="utf-8")
+    print_user_text = Path("user/print_user.c").read_text(encoding="utf-8")
     sync_a_text = Path("user/lab5_task_a_riscv.S").read_text(encoding="utf-8")
     sync_b_text = Path("user/lab5_task_b_riscv.S").read_text(encoding="utf-8")
 
     assert "SysToy unified lab selector" in runtime_text
     assert "run_lab2_boot_and_syscall" in runtime_text
     assert "run_lab6_fat32" in runtime_text
+    assert "LAB4A   ELF" in lab4_kernel_text
+    assert "PRINT   ELF" in lab4_kernel_text
     assert "LAB2    ELF" in lab6_kernel_text
     assert "LAB3    ELF" in lab6_kernel_text
     assert "LAB4A   ELF" in lab6_kernel_text
     assert "LAB5A   ELF" in lab6_kernel_text
+    assert "PRINT   ELF" in lab6_kernel_text
     assert "shared_words[SHARED_SLOT_ACCOUNT_UNSAFE]" in runtime_text
     assert "shared_words[SHARED_SLOT_ACCOUNT_SAFE]" in runtime_text
     assert "Lab4 TaskA" in task_a_text
-    assert "Lab4 TaskB" in task_b_text
     assert "SYSCALL_DEMO_DONE" in runtime_text
     assert "task done" in runtime_text
     assert '.asciz "Lab2 user program entered U-mode"' in lab2_text
@@ -257,11 +274,27 @@ def test_lab_selection_flow_is_wired_into_kernel_and_user_tasks():
     assert '.asciz "Lab4 round robin A"' in task_a_text
     assert "li a7, 6" in task_a_text
 
-    assert '.asciz "Lab4 TaskB tick source"' in task_b_text
-    assert '.asciz "Lab4 round robin B"' in task_b_text
-    assert "li a7, 6" in task_b_text
+    assert "print syscall from C user program" in print_user_text
+    assert "second line verifies repeated ecall" in print_user_text
+    assert "SYSCALL_DEMO_DONE" in print_user_text
 
     assert '.asciz "unsafe +5"' in sync_a_text
     assert '.asciz "safe +5"' in sync_a_text
     assert '.asciz "unsafe +7"' in sync_b_text
     assert '.asciz "safe +7"' in sync_b_text
+
+
+def test_print_syscall_user_program_is_packaged_for_lab6():
+    makefile_text = Path("Makefile.wsl").read_text(encoding="utf-8")
+    fat32_tool_text = Path("tools/make_fat32_image.py").read_text(encoding="utf-8")
+    print_user_text = Path("user/print_user.c").read_text(encoding="utf-8")
+
+    assert "build/print_user.elf" in fat32_tool_text
+    assert '"PRINT   ELF"' in fat32_tool_text
+    assert "$(BUILD_DIR)/print_user.elf" in makefile_text
+    assert "$(BUILD_DIR)/print_user_program.o" in makefile_text
+    assert "SYSCALL_PRINT" in print_user_text
+    assert "SYSCALL_DEMO_DONE" in print_user_text
+    assert "print syscall from C user program" in print_user_text
+    assert "string_length" not in print_user_text
+    assert "do_syscall_print(message_one, 33)" not in print_user_text

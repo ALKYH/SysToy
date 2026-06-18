@@ -49,16 +49,21 @@ def test_notebook_builder_generates_unified_ipynb_with_all_labs():
 def test_kernel_exposes_lab_selection_and_serial_input_paths():
     kernel_text = Path("kernel/kernel.c").read_text(encoding="utf-8")
     runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    lab4_text = Path("kernel/labs/lab4/lab4.c").read_text(encoding="utf-8")
+    lab5_text = Path("kernel/labs/lab5/lab5.c").read_text(encoding="utf-8")
     lab6_text = Path("kernel/labs/lab6/lab6.c").read_text(encoding="utf-8")
     console_text = Path("kernel/console.c").read_text(encoding="utf-8")
     makefile_text = Path("Makefile.wsl").read_text(encoding="utf-8")
 
     assert "lab_selection_loop_entry" in kernel_text
     assert "select_lab_from_console" in runtime_text
+    assert "select_scheduler_mode_from_console" in runtime_text
     assert "run_lab1_environment" in runtime_text
     assert "run_lab6_fat32" in runtime_text
     assert "selected_lab" in runtime_text
-    assert "Select disk program [1-4]" in lab6_text
+    assert "core elements" in lab4_text
+    assert "core elements" in lab5_text
+    assert "Select disk program [1-5]" in lab6_text
     assert "console_read_char" in console_text
     assert "UART_RHR" in console_text
     assert "lab2_user_riscv.S" in makefile_text
@@ -67,6 +72,7 @@ def test_kernel_exposes_lab_selection_and_serial_input_paths():
     assert "lab4_task_b_riscv.S" in makefile_text
     assert "lab5_task_a_riscv.S" in makefile_text
     assert "lab5_task_b_riscv.S" in makefile_text
+    assert "print_user.c" in makefile_text
 
 
 def test_kernel_can_return_to_lab_selector_after_program_completion():
@@ -79,6 +85,17 @@ def test_kernel_can_return_to_lab_selector_after_program_completion():
     assert "[menu] program finished, returning to lab selector" in trap_text
     assert "return_to_lab_selector_from_trap" in trap_text
     assert ".globl return_to_lab_selector_from_trap" in entry_text
+
+
+def test_scheduler_mode_selection_is_available_for_lab4_and_lab5():
+    runtime_text = Path("kernel/runtime/runtime_state.c").read_text(encoding="utf-8")
+    lab4_text = Path("kernel/labs/lab4/lab4.c").read_text(encoding="utf-8")
+    lab5_text = Path("kernel/labs/lab5/lab5.c").read_text(encoding="utf-8")
+
+    assert "scheduler_mode" in runtime_text
+    assert "scheduler trace" in runtime_text
+    assert "select_scheduler_mode_from_console()" in lab4_text
+    assert "select_scheduler_mode_from_console()" in lab5_text
 
 
 def test_kernel_sources_are_split_by_runtime_and_lab_folders():

@@ -102,11 +102,17 @@ $(BUILD_DIR)/lab2_user_riscv.o: $(USER_DIR)/lab2_user_riscv.S | $(BUILD_DIR)
 $(BUILD_DIR)/lab3_user_riscv.o: $(USER_DIR)/lab3_user_riscv.S | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/print_user.o: $(USER_DIR)/print_user.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/lab2_user.elf: $(BUILD_DIR)/lab2_user_riscv.o $(USER_DIR)/user_riscv.ld
 	$(LD) $(LDFLAGS) -T $(USER_DIR)/user_riscv.ld -o $@ $(BUILD_DIR)/lab2_user_riscv.o
 
 $(BUILD_DIR)/lab3_user.elf: $(BUILD_DIR)/lab3_user_riscv.o $(USER_DIR)/user_riscv.ld
 	$(LD) $(LDFLAGS) -T $(USER_DIR)/user_riscv.ld -o $@ $(BUILD_DIR)/lab3_user_riscv.o
+
+$(BUILD_DIR)/print_user.elf: $(BUILD_DIR)/print_user.o $(USER_DIR)/user_riscv.ld
+	$(LD) $(LDFLAGS) -T $(USER_DIR)/user_riscv.ld -o $@ $(BUILD_DIR)/print_user.o
 
 $(BUILD_DIR)/lab4_task_a.elf: $(BUILD_DIR)/lab4_task_a_riscv.o $(USER_DIR)/user_riscv.ld
 	$(LD) $(LDFLAGS) -T $(USER_DIR)/user_riscv.ld -o $@ $(BUILD_DIR)/lab4_task_a_riscv.o
@@ -126,6 +132,9 @@ $(BUILD_DIR)/lab2_user_program.o: $(BUILD_DIR)/lab2_user.elf
 $(BUILD_DIR)/lab3_user_program.o: $(BUILD_DIR)/lab3_user.elf
 	$(LD) -m elf32lriscv -r -b binary $< -o $@
 
+$(BUILD_DIR)/print_user_program.o: $(BUILD_DIR)/print_user.elf
+	$(LD) -m elf32lriscv -r -b binary $< -o $@
+
 $(BUILD_DIR)/lab4_task_a_program.o: $(BUILD_DIR)/lab4_task_a.elf
 	$(LD) -m elf32lriscv -r -b binary $< -o $@
 
@@ -138,11 +147,11 @@ $(BUILD_DIR)/lab5_task_a_program.o: $(BUILD_DIR)/lab5_task_a.elf
 $(BUILD_DIR)/lab5_task_b_program.o: $(BUILD_DIR)/lab5_task_b.elf
 	$(LD) -m elf32lriscv -r -b binary $< -o $@
 
-$(BUILD_DIR)/disk.img: $(BUILD_DIR)/lab2_user.elf $(BUILD_DIR)/lab3_user.elf $(BUILD_DIR)/lab4_task_a.elf $(BUILD_DIR)/lab4_task_b.elf $(BUILD_DIR)/lab5_task_a.elf $(BUILD_DIR)/lab5_task_b.elf $(TOOLS_DIR)/make_fat32_image.py | $(BUILD_DIR)
+$(BUILD_DIR)/disk.img: $(BUILD_DIR)/lab2_user.elf $(BUILD_DIR)/lab3_user.elf $(BUILD_DIR)/print_user.elf $(BUILD_DIR)/lab4_task_a.elf $(BUILD_DIR)/lab4_task_b.elf $(BUILD_DIR)/lab5_task_a.elf $(BUILD_DIR)/lab5_task_b.elf $(TOOLS_DIR)/make_fat32_image.py | $(BUILD_DIR)
 	python3 $(TOOLS_DIR)/make_fat32_image.py $@
 
 $(BUILD_DIR)/disk_program.o: $(BUILD_DIR)/disk.img
 	$(LD) -m elf32lriscv -r -b binary $< -o $@
 
-$(BUILD_DIR)/kernel.elf: $(KERNEL_OBJS) $(BUILD_DIR)/lab2_user_program.o $(BUILD_DIR)/lab3_user_program.o $(BUILD_DIR)/lab4_task_a_program.o $(BUILD_DIR)/lab4_task_b_program.o $(BUILD_DIR)/lab5_task_a_program.o $(BUILD_DIR)/lab5_task_b_program.o $(BUILD_DIR)/disk_program.o $(KERNEL_DIR)/linker.ld
-	$(LD) $(LDFLAGS) -T $(KERNEL_DIR)/linker.ld -o $@ $(KERNEL_OBJS) $(BUILD_DIR)/lab2_user_program.o $(BUILD_DIR)/lab3_user_program.o $(BUILD_DIR)/lab4_task_a_program.o $(BUILD_DIR)/lab4_task_b_program.o $(BUILD_DIR)/lab5_task_a_program.o $(BUILD_DIR)/lab5_task_b_program.o $(BUILD_DIR)/disk_program.o
+$(BUILD_DIR)/kernel.elf: $(KERNEL_OBJS) $(BUILD_DIR)/lab2_user_program.o $(BUILD_DIR)/lab3_user_program.o $(BUILD_DIR)/print_user_program.o $(BUILD_DIR)/lab4_task_a_program.o $(BUILD_DIR)/lab4_task_b_program.o $(BUILD_DIR)/lab5_task_a_program.o $(BUILD_DIR)/lab5_task_b_program.o $(BUILD_DIR)/disk_program.o $(KERNEL_DIR)/linker.ld
+	$(LD) $(LDFLAGS) -T $(KERNEL_DIR)/linker.ld -o $@ $(KERNEL_OBJS) $(BUILD_DIR)/lab2_user_program.o $(BUILD_DIR)/lab3_user_program.o $(BUILD_DIR)/print_user_program.o $(BUILD_DIR)/lab4_task_a_program.o $(BUILD_DIR)/lab4_task_b_program.o $(BUILD_DIR)/lab5_task_a_program.o $(BUILD_DIR)/lab5_task_b_program.o $(BUILD_DIR)/disk_program.o

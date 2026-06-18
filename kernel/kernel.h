@@ -101,6 +101,7 @@ void timer_schedule_next(void);
 u32 scheduler_handle_timer(struct trap_frame* frame, u32 current_mepc);
 int consume_menu_return_request(void);
 void lab_selection_loop_entry(void);
+int select_scheduler_mode_from_console(void);
 void boot_lab_user_program(const struct embedded_program* program, u32 user_stack);
 void load_user_program_from_disk(const char* file_name_11, u32 user_stack, const char* label);
 int select_disk_program_from_console(void);
